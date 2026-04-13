@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NLP Text Lab</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #0e0e10;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    a { color: inherit; }
+    h2.sr-only { position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0); }
+
+    .nlp-root { max-width: 960px; margin: 0 auto; }
+    .nlp-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 1.5rem; }
+    .nlp-title { font-size: 20px; font-weight: 600; color: #f0f0f0; }
+    .nlp-sub { font-size: 12px; color: #888; letter-spacing: 0.08em; }
+
+    .steps-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+    .step-toggle {
+      display: flex; align-items: center; gap: 6px;
+      background: #1a1a1e; border: 1px solid #333;
+      border-radius: 20px; padding: 4px 12px;
+      cursor: pointer; font-size: 12px; color: #888;
+      font-family: 'Courier New', monospace;
+      transition: all 0.15s; user-select: none;
+    }
+    .step-toggle.active { background: #1e1e24; border-color: #555; color: #e8e8e8; }
+    .step-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: #333; }
+    .step-toggle.active .dot { background: #1D9E75; }
+
+    .pipeline-vis { display: flex; align-items: center; gap: 0; margin-bottom: 1.2rem; overflow-x: auto; flex-wrap: wrap; }
+    .pipe-step {
+      font-size: 11px; font-family: 'Courier New', monospace;
+      color: #555; background: #1a1a1e; border: 1px solid #2a2a2e;
+      border-radius: 6px; padding: 4px 10px; white-space: nowrap;
+    }
+    .pipe-step.active { color: #e8e8e8; border-color: #444; }
+    .pipe-arrow { font-size: 12px; color: #444; padding: 0 4px; }
+
+    .nlp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @media (max-width: 640px) { .nlp-grid { grid-template-columns: 1fr; } }
+
+    .nlp-panel {
+      background: #1a1a1e; border: 1px solid #2a2a2e;
+      border-radius: 12px; padding: 1rem;
+    }
+    .panel-label { font-size: 11px; color: #666; letter-spacing: 0.1em; margin-bottom: 8px; }
+
+    textarea {
+      width: 100%; height: 130px;
+      background: #111113; border: 1px solid #2a2a2e;
+      border-radius: 8px; padding: 10px 12px;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      color: #e8e8e8; resize: vertical; outline: none; line-height: 1.6;
+    }
+    textarea:focus { border-color: #555; }
+
+    .btn-row { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    button {
+      background: #111113; border: 1px solid #333;
+      border-radius: 8px; padding: 8px 18px;
+      font-family: 'Courier New', monospace; font-size: 13px;
+      font-weight: 600; color: #e8e8e8; cursor: pointer;
+      transition: background 0.15s;
+    }
+    button:hover { background: #1e1e24; }
+    button:active { transform: scale(0.98); }
+    .btn-sm { font-size: 12px; padding: 6px 14px; font-weight: 400; }
+
+    .cleaned-text {
+      font-family: 'Courier New', monospace; font-size: 13px;
+      color: #e8e8e8; line-height: 1.8;
+      background: #111113; border: 1px solid #2a2a2e;
+      border-radius: 8px; padding: 10px 12px;
+      min-height: 70px; word-break: break-word;
+    }
+
+    .section-lbl { font-size: 11px; font-weight: 600; color: #666; letter-spacing: 0.1em; margin: 1.2rem 0 0.6rem; }
+
+    .tokens-area { min-height: 80px; display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+    .token {
+      display: inline-flex; flex-direction: column; align-items: center;
+      background: #111113; border: 1px solid #2a2a2e;
+      border-radius: 8px; padding: 4px 8px; font-size: 12px;
+    }
+    .token-word { color: #e8e8e8; font-weight: 600; }
+    .token-pos { font-size: 10px; color: #666; margin-top: 2px; }
+    .pos-NN .token-pos { color: #378ADD; }
+    .pos-VB .token-pos { color: #1D9E75; }
+    .pos-JJ .token-pos { color: #D85A30; }
+    .pos-RB .token-pos { color: #7F77DD; }
+    .pos-DT .token-pos { color: #666; }
+
+    .pos-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+    .pos-legend span { font-size: 11px; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+
+    .freq-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .freq-word { font-size: 12px; color: #e8e8e8; min-width: 80px; font-family: 'Courier New', monospace; }
+    .freq-bar-wrap { flex: 1; background: #111113; border-radius: 4px; height: 8px; overflow: hidden; }
+    .freq-bar { height: 100%; background: #1D9E75; border-radius: 4px; transition: width 0.4s; }
+    .freq-count { font-size: 11px; color: #666; min-width: 20px; text-align: right; }
+
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 1rem; }
+    @media (max-width: 480px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: #1a1a1e; border-radius: 8px; padding: 10px 12px; text-align: center; }
+    .stat-num { font-size: 24px; font-weight: 600; color: #f0f0f0; display: block; font-family: 'Courier New', monospace; }
+    .stat-lbl { font-size: 11px; color: #666; margin-top: 2px; letter-spacing: 0.06em; }
+
+    .ner-tag {
+      display: inline-block; margin: 2px 4px 2px 0;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      background: #111113; border: 1px solid #2a2a2e;
+      border-radius: 6px; padding: 2px 8px;
+    }
+    .ner-type { font-size: 10px; letter-spacing: 0.08em; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+<div class="nlp-root">
+  <h2 class="sr-only">NLP Text Cleaner — interactive tool to clean and analyze text with stopword removal, tokenization, POS tagging, and more.</h2>
+
+  <div class="nlp-header">
+    <span class="nlp-title">NLP Text Lab</span>
+    <span class="nlp-sub">text cleaning pipeline</span>
+  </div>
+
+  <div class="steps-row" id="stepsRow">
+    <div class="step-toggle active" data-step="lowercase"><span class="dot"></span>Lowercase</div>
+    <div class="step-toggle active" data-step="punctuation"><span class="dot"></span>Remove punctuation</div>
+    <div class="step-toggle active" data-step="numbers"><span class="dot"></span>Remove numbers</div>
+    <div class="step-toggle active" data-step="stopwords"><span class="dot"></span>Stop words</div>
+    <div class="step-toggle active" data-step="stemming"><span class="dot"></span>Stemming</div>
+    <div class="step-toggle active" data-step="whitespace"><span class="dot"></span>Extra whitespace</div>
+    <div class="step-toggle active" data-step="pos"><span class="dot"></span>POS tagging</div>
+    <div class="step-toggle active" data-step="ner"><span class="dot"></span>NER</div>
+  </div>
+
+  <div id="pipelineVis" class="pipeline-vis"></div>
+
+  <div class="nlp-grid">
+    <div class="nlp-panel">
+      <div class="panel-label">INPUT TEXT</div>
+      <textarea id="inputText" placeholder="Type or paste your text here...&#10;&#10;e.g. The quick brown fox jumps over the lazy dog. John works at OpenAI in San Francisco. He has 3 cats and 12 dogs!"></textarea>
+      <div class="btn-row">
+        <button onclick="runPipeline()">Run pipeline →</button>
+        <button class="btn-sm" onclick="loadSample()">Load sample</button>
+        <button class="btn-sm" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+    <div class="nlp-panel">
+      <div class="panel-label">CLEANED OUTPUT</div>
+      <div class="cleaned-text" id="cleanedText" style="min-height:130px;">—</div>
+    </div>
+  </div>
+
+  <div class="section-lbl">TOKENS + POS TAGS</div>
+  <div class="nlp-panel" style="margin-bottom:1rem;">
+    <div class="tokens-area" id="tokensArea">
+      <span style="font-size:12px;color:#555;">Run the pipeline to see tokens here.</span>
+    </div>
+    <div class="pos-legend">
+      <span style="color:#378ADD;">■ NOUN</span>
+      <span style="color:#1D9E75;">■ VERB</span>
+      <span style="color:#D85A30;">■ ADJ</span>
+      <span style="color:#7F77DD;">■ ADV</span>
+      <span style="color:#666;">■ OTHER</span>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="nlp-panel">
+      <div class="panel-label">NAMED ENTITIES (NER)</div>
+      <div id="nerArea" style="min-height:60px;font-size:13px;color:#666;">—</div>
+    </div>
+    <div class="nlp-panel">
+      <div class="panel-label">WORD FREQUENCY</div>
+      <div id="freqArea" style="min-height:60px;">—</div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><span class="stat-num" id="s-orig">0</span><div class="stat-lbl">orig tokens</div></div>
+    <div class="stat-card"><span class="stat-num" id="s-clean">0</span><div class="stat-lbl">clean tokens</div></div>
+    <div class="stat-card"><span class="stat-num" id="s-removed">0</span><div class="stat-lbl">removed</div></div>
+    <div class="stat-card"><span class="stat-num" id="s-unique">0</span><div class="stat-lbl">unique words</div></div>
+  </div>
+</div>
+
+<script>
+const STOPWORDS = new Set(['i','me','my','myself','we','our','ours','ourselves','you','your','yours','yourself','he','him','his','himself','she','her','hers','herself','it','its','itself','they','them','their','theirs','themselves','what','which','who','whom','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','having','do','does','did','doing','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','against','between','into','through','during','before','after','above','below','to','from','up','down','in','out','on','off','over','under','again','further','then','once','here','there','when','where','why','how','all','both','each','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','s','t','can','will','just','don','should','now','d','ll','m','o','re','ve','y','ain','aren','couldn','didn','doesn','hadn','hasn','haven','isn','ma','mightn','mustn','needn','shan','shouldn','wasn','weren','won','wouldn']);
+
+const POS_RULES = [
+  [/ing$/i,'VBG'],[/ed$/i,'VBD'],[/s$/i,'NNS'],[/tion$/i,'NN'],[/ness$/i,'NN'],[/ment$/i,'NN'],[/ity$/i,'NN'],[/ly$/i,'RB'],[/ful$/i,'JJ'],[/ous$/i,'JJ'],[/ive$/i,'JJ'],[/able$/i,'JJ'],[/al$/i,'JJ'],[/^(the|a|an)$/i,'DT'],[/^(in|on|at|by|for|with|of|to|from|up|down|into|onto|over|under|through|between|among|around|before|after|during|since|until|towards|against|behind|beside|beyond)$/i,'IN'],[/^(and|but|or|nor|for|yet|so)$/i,'CC'],[/^(is|are|was|were|be|been|being|am)$/i,'VBZ'],[/^(have|has|had|having)$/i,'VBP'],[/^(do|does|did|doing)$/i,'VBP'],[/^(will|would|could|should|might|may|must|shall|can)$/i,'MD']
+];
+
+const NER_PATTERNS = {
+  PERSON:[/\b([A-Z][a-z]+ [A-Z][a-z]+)\b/g],
+  ORG:[/\b(OpenAI|Google|Microsoft|Apple|Amazon|Meta|Twitter|Facebook|NASA|WHO|UN|EU|FBI|CIA|NFL|NBA|MIT|Harvard|Stanford)\b/g],
+  LOC:[/\b(San Francisco|New York|London|Paris|Tokyo|Beijing|Berlin|Sydney|Los Angeles|Chicago|Boston|Seattle|Austin|Toronto|Mumbai|Dubai|Singapore|Africa|Asia|Europe|America)\b/g],
+  DATE:[/\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b \d{1,2},? \d{4}|\b\d{4}\b)\b/g]
+};
+
+function getActiveSteps(){
+  return [...document.querySelectorAll('.step-toggle.active')].map(el=>el.dataset.step);
+}
+
+function getPOS(word){
+  const w=word.toLowerCase();
+  for(const [re,tag] of POS_RULES) if(re.test(w)) return tag;
+  if(/^[A-Z]/.test(word)) return 'NNP';
+  return 'NN';
+}
+
+function stem(word){
+  return word.replace(/ational$/,'ate').replace(/tional$/,'tion').replace(/enci$/,'ence').replace(/anci$/,'ance').replace(/izer$/,'ize').replace(/ising$/,'ise').replace(/izing$/,'ize').replace(/nesses$/,'ness').replace(/ness$/,'').replace(/ment$/,'').replace(/ful$/,'').replace(/ous$/,'').replace(/ive$/,'').replace(/ible$/,'').replace(/able$/,'').replace(/ing$/,'').replace(/edly$/,'').replace(/ingly$/,'').replace(/ied$/,'y').replace(/ies$/,'y').replace(/ees$/,'ee').replace(/ss$/,'ss').replace(/s$/,'');
+}
+
+function updatePipelineVis(steps){
+  const all=['lowercase','punctuation','numbers','stopwords','stemming','whitespace','pos','ner'];
+  const labels={'lowercase':'lowercase','punctuation':'rm punct','numbers':'rm nums','stopwords':'rm stopwords','stemming':'stem','whitespace':'trim ws','pos':'pos tag','ner':'ner'};
+  const vis=document.getElementById('pipelineVis');
+  vis.innerHTML='';
+  const active=new Set(steps);
+  all.forEach((s,i)=>{
+    const el=document.createElement('span');
+    el.className='pipe-step'+(active.has(s)?' active':'');
+    el.textContent=labels[s];
+    vis.appendChild(el);
+    if(i<all.length-1){const a=document.createElement('span');a.className='pipe-arrow';a.textContent='→';vis.appendChild(a);}
+  });
+}
+
+function runPipeline(){
+  const raw=document.getElementById('inputText').value.trim();
+  if(!raw){document.getElementById('cleanedText').textContent='—';return;}
+  const steps=getActiveSteps();
+  updatePipelineVis(steps);
+  let text=raw;
+  if(steps.includes('lowercase')) text=text.toLowerCase();
+  if(steps.includes('punctuation')) text=text.replace(/[^\w\s]/g,' ');
+  if(steps.includes('numbers')) text=text.replace(/\d+/g,' ');
+  if(steps.includes('whitespace')) text=text.replace(/\s+/g,' ').trim();
+  let tokens=text.split(/\s+/).filter(Boolean);
+  const origTokens=raw.split(/\s+/).filter(Boolean);
+  if(steps.includes('stopwords')){
+    tokens=tokens.filter(t=>!STOPWORDS.has(t.toLowerCase()));
+  }
+  if(steps.includes('stemming')) tokens=tokens.map(stem);
+  const cleanedStr=tokens.join(' ');
+  document.getElementById('cleanedText').textContent=cleanedStr||'(empty after cleaning)';
+  document.getElementById('s-orig').textContent=origTokens.length;
+  document.getElementById('s-clean').textContent=tokens.length;
+  document.getElementById('s-removed').textContent=origTokens.length-tokens.length;
+  document.getElementById('s-unique').textContent=new Set(tokens).size;
+  const tokArea=document.getElementById('tokensArea');
+  tokArea.innerHTML='';
+  if(steps.includes('pos')){
+    tokens.forEach(w=>{
+      const pos=getPOS(w);
+      const posGroup=pos.startsWith('NN')?'pos-NN':pos.startsWith('VB')?'pos-VB':pos.startsWith('JJ')?'pos-JJ':pos.startsWith('RB')?'pos-RB':pos.startsWith('DT')||pos==='IN'||pos==='CC'?'pos-DT':'';
+      const el=document.createElement('div');
+      el.className='token '+posGroup;
+      el.innerHTML='<span class="token-word">'+w+'</span><span class="token-pos">'+pos+'</span>';
+      tokArea.appendChild(el);
+    });
+  } else {
+    tokens.forEach(w=>{
+      const el=document.createElement('div');el.className='token';
+      el.innerHTML='<span class="token-word">'+w+'</span>';tokArea.appendChild(el);
+    });
+  }
+  if(!tokens.length){tokArea.innerHTML='<span style="font-size:12px;color:#555;">No tokens remain.</span>';}
+
+  const nerArea=document.getElementById('nerArea');
+  if(steps.includes('ner')){
+    const found={};
+    const nerColors={PERSON:'#378ADD',ORG:'#1D9E75',LOC:'#D85A30',DATE:'#7F77DD'};
+    for(const [type,patterns] of Object.entries(NER_PATTERNS)){
+      for(const re of patterns){
+        const matches=[...raw.matchAll(re)].map(m=>m[0]);
+        if(matches.length) found[type]=(found[type]||[]).concat(matches);
+      }
+    }
+    const keys=Object.keys(found);
+    if(keys.length){
+      nerArea.innerHTML=keys.map(t=>'<div style="margin-bottom:8px;"><div class="ner-type" style="color:'+nerColors[t]+'">'+t+'</div>'+[...new Set(found[t])].map(e=>'<span class="ner-tag">'+e+'</span>').join('')+'</div>').join('');
+    } else {
+      nerArea.textContent='No named entities detected.';
+    }
+  } else { nerArea.textContent='NER step disabled.'; }
+
+  const freq={};
+  tokens.forEach(t=>{if(t.length>1)freq[t]=(freq[t]||0)+1;});
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const freqArea=document.getElementById('freqArea');
+  if(sorted.length){
+    const max=sorted[0][1];
+    freqArea.innerHTML=sorted.map(([w,c])=>'<div class="freq-row"><span class="freq-word">'+w+'</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:'+Math.round(c/max*100)+'%"></div></div><span class="freq-count">'+c+'</span></div>').join('');
+  } else { freqArea.textContent='—'; }
+}
+
+document.querySelectorAll('.step-toggle').forEach(el=>{
+  el.addEventListener('click',()=>{
+    el.classList.toggle('active');
+    updatePipelineVis(getActiveSteps());
+  });
+});
+
+function loadSample(){
+  document.getElementById('inputText').value='The quick brown fox jumps over the lazy dog! John Smith works at OpenAI in San Francisco. He has 3 cats, 12 dogs, and loves running, jumping, and swimming. This is an absolutely wonderful and incredibly amazing experience!';
+  runPipeline();
+}
+
+function clearAll(){
+  document.getElementById('inputText').value='';
+  document.getElementById('cleanedText').textContent='—';
+  document.getElementById('tokensArea').innerHTML='<span style="font-size:12px;color:#555;">Run the pipeline to see tokens here.</span>';
+  document.getElementById('nerArea').textContent='—';
+  document.getElementById('freqArea').textContent='—';
+  ['s-orig','s-clean','s-removed','s-unique'].forEach(id=>document.getElementById(id).textContent='0');
+  document.getElementById('pipelineVis').innerHTML='';
+}
+
+updatePipelineVis(getActiveSteps());
+</script>
+</body>
+</html>
